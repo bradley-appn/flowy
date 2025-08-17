@@ -210,7 +210,7 @@ namespace appn.flowy {
             }
             const target = event.target as HTMLElement;
             if (mouseEvent.button !== 2 && target.closest(".create-flowy")) {
-                this.original = target.closest(".create-flowy");
+                this.original = target.closest(".create-flowy") as HTMLElement;
                 if (!this.original) return;
                 const newNode: HTMLElement = this.original.cloneNode(true) as HTMLElement;
                 this.original.classList.add("dragnow");
@@ -326,7 +326,7 @@ namespace appn.flowy {
                 const blockid: number = parseInt(blockidInput.value);
                 this.prevblock = this.blocks.find(a => a.id == blockid)?.parent ?? -1;
                 const draggedBlock = this.blocks.find(a => a.id == blockid);
-                if(draggedBlock) {
+                if (draggedBlock) {
                     this.blockstemp.push(draggedBlock);
                 }
                 this.blocks = this.blocks.filter(e => e.id != blockid);
@@ -387,10 +387,13 @@ namespace appn.flowy {
             } else if (this.rearrangevar && this.drag) {
                 this.drag.style.left = this.mouse_x - this.dragx - (window.scrollX + this.absx) + this.canvas.scrollLeft + "px";
                 this.drag.style.top = this.mouse_y - this.dragy - (window.scrollY + this.absy) + this.canvas.scrollTop + "px";
-                const draggedBlock = this.blockstemp.find(a => a.id == parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value));
-                if (draggedBlock) {
-                    draggedBlock.x = (this.drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(this.drag).width) / 2) + this.canvas.scrollLeft;
-                    draggedBlock.y = (this.drag.getBoundingClientRect().top + window.scrollY) + (parseInt(window.getComputedStyle(this.drag).height) / 2) + this.canvas.scrollTop;
+                const blockidInput = this.drag.querySelector<HTMLInputElement>(".blockid");
+                if (blockidInput) {
+                    const draggedBlock = this.blockstemp.find(a => a.id == parseInt(blockidInput.value));
+                    if (draggedBlock) {
+                        draggedBlock.x = (this.drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(this.drag).width) / 2) + this.canvas.scrollLeft;
+                        draggedBlock.y = (this.drag.getBoundingClientRect().top + window.scrollY) + (parseInt(window.getComputedStyle(this.drag).height) / 2) + this.canvas.scrollTop;
+                    }
                 }
             }
             if ((this.active || this.rearrangevar) && this.drag) {
@@ -665,7 +668,7 @@ namespace appn.flowy {
                 return false;
             }
             if ((element as HTMLElement).className.split(' ').indexOf(classname) >= 0) return true;
-            return element.parentNode && this.hasParentClass(element.parentNode, classname);
+            return this.hasParentClass(element.parentNode, classname);
         }
 
         private checkOffset(): void {

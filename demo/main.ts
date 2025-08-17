@@ -156,7 +156,7 @@ namespace appn.demo {
                 const target = event.target as HTMLElement;
                 const block = target.closest<HTMLElement>(".block");
                 if (!this.rightcard && block && !block.classList.contains("dragging")) {
-                    this.tempblock = block;
+                    this.tempblock = block as HTMLElement;
                     this.rightcard = true;
                     document.getElementById("properties")?.classList.add("expanded");
                     document.getElementById("propwrap")?.classList.add("itson");
