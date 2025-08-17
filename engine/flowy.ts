@@ -165,20 +165,24 @@ namespace appn.flowy {
                         data: [],
                         attr: []
                     });
-                    const blockParent: HTMLElement = document.querySelector(".blockid[value='" + this.blocks[i].id + "']").parentNode as HTMLElement;
-                    blockParent.querySelectorAll("input").forEach((block: HTMLInputElement) => {
-                        const json_name: string = block.getAttribute("name");
-                        const json_value: string = block.value;
-                        json_data.blocks[i].data.push({
-                            name: json_name,
-                            value: json_value
+                    const blockParent = document.querySelector(".blockid[value='" + this.blocks[i].id + "']")?.parentNode as HTMLElement;
+                    if (blockParent) {
+                        blockParent.querySelectorAll("input").forEach((block: HTMLInputElement) => {
+                            const json_name: string | null = block.getAttribute("name");
+                            const json_value: string = block.value;
+                            if (json_name) {
+                                json_data.blocks[i].data.push({
+                                    name: json_name,
+                                    value: json_value
+                                });
+                            }
                         });
-                    });
-                    Array.prototype.slice.call(blockParent.attributes).forEach((attribute: Attr) => {
-                        let jsonobj: Attribute = {};
-                        jsonobj[attribute.name] = attribute.value;
-                        json_data.blocks[i].attr.push(jsonobj);
-                    });
+                        Array.prototype.slice.call(blockParent.attributes).forEach((attribute: Attr) => {
+                            let jsonobj: Attribute = {};
+                            jsonobj[attribute.name] = attribute.value;
+                            json_data.blocks[i].attr.push(jsonobj);
+                        });
+                    }
                 }
                 return json_data;
             }
@@ -189,20 +193,23 @@ namespace appn.flowy {
             this.canvas.innerHTML = "<div class='indicator invisible'></div>";
         }
 
-        public beginDrag(event: MouseEvent | TouchEvent): void {
+        public beginDrag(event: Event): void {
+            const mouseEvent = event as MouseEvent;
+            const touchEvent = event as TouchEvent;
+
             if (window.getComputedStyle(this.canvas).position == "absolute" || window.getComputedStyle(this.canvas).position == "fixed") {
                 this.absx = this.canvas.getBoundingClientRect().left;
                 this.absy = this.canvas.getBoundingClientRect().top;
             }
-            if (event instanceof TouchEvent) {
-                this.mouse_x = event.changedTouches[0].clientX;
-                this.mouse_y = event.changedTouches[0].clientY;
+            if (touchEvent.changedTouches) {
+                this.mouse_x = touchEvent.changedTouches[0].clientX;
+                this.mouse_y = touchEvent.changedTouches[0].clientY;
             } else {
-                this.mouse_x = event.clientX;
-                this.mouse_y = event.clientY;
+                this.mouse_x = mouseEvent.clientX;
+                this.mouse_y = mouseEvent.clientY;
             }
             const target = event.target as HTMLElement;
-            if (event instanceof MouseEvent && event.button !== 2 && target.closest(".create-flowy")) {
+            if (mouseEvent.button !== 2 && target.closest(".create-flowy")) {
                 this.original = target.closest(".create-flowy");
                 if (!this.original) return;
                 const newNode: HTMLElement = this.original.cloneNode(true) as HTMLElement;
@@ -220,7 +227,10 @@ namespace appn.flowy {
                 this.drag = document.querySelector(`.blockid[value='${newId}']`)?.parentNode as HTMLElement;
 
                 if (this.drag) {
-                    this.blockGrabbed(target.closest(".create-flowy"));
+                    const grabbedBlock = target.closest(".create-flowy");
+                    if (grabbedBlock) {
+                        this.blockGrabbed(grabbedBlock);
+                    }
                     this.drag.classList.add("dragging");
                     this.active = true;
                     this.dragx = this.mouse_x - (this.original.getBoundingClientRect().left);
@@ -231,8 +241,9 @@ namespace appn.flowy {
             }
         }
 
-        public endDrag(event: MouseEvent | TouchEvent): void {
-            if ((event instanceof MouseEvent && event.button !== 2) && (this.active || this.rearrangevar)) {
+        public endDrag(event: Event): void {
+            const mouseEvent = event as MouseEvent;
+            if (mouseEvent.button !== 2 && (this.active || this.rearrangevar)) {
                 this.dragblock = false;
                 this.blockReleased();
                 const indicator = document.querySelector(".indicator");
@@ -297,23 +308,28 @@ namespace appn.flowy {
             }
         }
 
-        public moveBlock(event: MouseEvent | TouchEvent): void {
-            if (event instanceof TouchEvent) {
-                this.mouse_x = event.targetTouches[0].clientX;
-                this.mouse_y = event.targetTouches[0].clientY;
+        public moveBlock(event: Event): void {
+            const mouseEvent = event as MouseEvent;
+            const touchEvent = event as TouchEvent;
+            if (touchEvent.changedTouches) {
+                this.mouse_x = touchEvent.changedTouches[0].clientX;
+                this.mouse_y = touchEvent.changedTouches[0].clientY;
             } else {
-                this.mouse_x = event.clientX;
-                this.mouse_y = event.clientY;
+                this.mouse_x = mouseEvent.clientX;
+                this.mouse_y = mouseEvent.clientY;
             }
-            if (this.dragblock) {
+            if (this.dragblock && this.drag) {
                 this.rearrangevar = true;
                 this.drag.classList.add("dragging");
                 const blockid: number = parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value);
-                this.prevblock = this.blocks.filter(a => a.id == blockid)[0].parent;
-                this.blockstemp.push(this.blocks.filter(a => a.id == blockid)[0]);
+                this.prevblock = this.blocks.find(a => a.id == blockid)?.parent ?? -1;
+                this.blockstemp.push(this.blocks.find(a => a.id == blockid));
                 this.blocks = this.blocks.filter(e => e.id != blockid);
                 if (blockid != 0) {
-                    document.querySelector(".arrowid[value='" + blockid + "']").parentNode.remove();
+                    const arrow = document.querySelector(".arrowid[value='" + blockid + "']");
+                    if (arrow && arrow.parentNode) {
+                        arrow.parentNode.removeChild(arrow);
+                    }
                 }
                 let layer: Block[] = this.blocks.filter(a => a.parent == blockid);
                 let flag: boolean = false;
@@ -322,15 +338,17 @@ namespace appn.flowy {
                 while (!flag) {
                     for (let i = 0; i < layer.length; i++) {
                         if (layer[i].id != blockid) {
-                            this.blockstemp.push(this.blocks.filter(a => a.id == layer[i].id)[0]);
-                            const blockParent: HTMLElement = document.querySelector(".blockid[value='" + layer[i].id + "']").parentNode as HTMLElement;
-                            const arrowParent: HTMLElement = document.querySelector(".arrowid[value='" + layer[i].id + "']").parentNode as HTMLElement;
-                            blockParent.style.left = (blockParent.getBoundingClientRect().left + window.scrollX) - (this.drag.getBoundingClientRect().left + window.scrollX) + "px";
-                            blockParent.style.top = (blockParent.getBoundingClientRect().top + window.scrollY) - (this.drag.getBoundingClientRect().top + window.scrollY) + "px";
-                            arrowParent.style.left = (arrowParent.getBoundingClientRect().left + window.scrollX) - (this.drag.getBoundingClientRect().left + window.scrollX) + "px";
-                            arrowParent.style.top = (arrowParent.getBoundingClientRect().top + window.scrollY) - (this.drag.getBoundingClientRect().top + window.scrollY) + "px";
-                            this.drag.appendChild(blockParent);
-                            this.drag.appendChild(arrowParent);
+                            this.blockstemp.push(this.blocks.find(a => a.id == layer[i].id));
+                            const blockParent = document.querySelector<HTMLElement>(".blockid[value='" + layer[i].id + "']")?.parentNode as HTMLElement;
+                            const arrowParent = document.querySelector<HTMLElement>(".arrowid[value='" + layer[i].id + "']")?.parentNode as HTMLElement;
+                            if (blockParent && arrowParent && this.drag) {
+                                blockParent.style.left = (blockParent.getBoundingClientRect().left + window.scrollX) - (this.drag.getBoundingClientRect().left + window.scrollX) + "px";
+                                blockParent.style.top = (blockParent.getBoundingClientRect().top + window.scrollY) - (this.drag.getBoundingClientRect().top + window.scrollY) + "px";
+                                arrowParent.style.left = (arrowParent.getBoundingClientRect().left + window.scrollX) - (this.drag.getBoundingClientRect().left + window.scrollX) + "px";
+                                arrowParent.style.top = (arrowParent.getBoundingClientRect().top + window.scrollY) - (this.drag.getBoundingClientRect().top + window.scrollY) + "px";
+                                this.drag.appendChild(blockParent);
+                                this.drag.appendChild(arrowParent);
+                            }
                             foundids.push(layer[i].id);
                             allids.push(layer[i].id);
                         }
@@ -338,7 +356,7 @@ namespace appn.flowy {
                     if (foundids.length == 0) {
                         flag = true;
                     } else {
-                        layer = this.blocks.filter(a => foundids.includes(a.parent));
+                        layer = this.blocks.filter(a => foundids.indexOf(a.parent) > -1);
                         foundids = [];
                     }
                 }
@@ -355,16 +373,19 @@ namespace appn.flowy {
                 }
                 this.dragblock = false;
             }
-            if (this.active) {
+            if (this.active && this.drag) {
                 this.drag.style.left = this.mouse_x - this.dragx + "px";
                 this.drag.style.top = this.mouse_y - this.dragy + "px";
-            } else if (this.rearrangevar) {
+            } else if (this.rearrangevar && this.drag) {
                 this.drag.style.left = this.mouse_x - this.dragx - (window.scrollX + this.absx) + this.canvas.scrollLeft + "px";
                 this.drag.style.top = this.mouse_y - this.dragy - (window.scrollY + this.absy) + this.canvas.scrollTop + "px";
-                this.blockstemp.filter(a => a.id == parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value))[0].x = (this.drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(this.drag).width) / 2) + this.canvas.scrollLeft;
-                this.blockstemp.filter(a => a.id == parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value))[0].y = (this.drag.getBoundingClientRect().top + window.scrollY) + (parseInt(window.getComputedStyle(this.drag).height) / 2) + this.canvas.scrollTop;
+                const draggedBlock = this.blockstemp.find(a => a.id == parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value));
+                if (draggedBlock) {
+                    draggedBlock.x = (this.drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(this.drag).width) / 2) + this.canvas.scrollLeft;
+                    draggedBlock.y = (this.drag.getBoundingClientRect().top + window.scrollY) + (parseInt(window.getComputedStyle(this.drag).height) / 2) + this.canvas.scrollTop;
+                }
             }
-            if (this.active || this.rearrangevar) {
+            if ((this.active || this.rearrangevar) && this.drag) {
                 if (this.mouse_x > this.canvas.getBoundingClientRect().width + this.canvas.getBoundingClientRect().left - 10 && this.mouse_x < this.canvas.getBoundingClientRect().width + this.canvas.getBoundingClientRect().left + 10) {
                     this.canvas.scrollLeft += 10;
                 } else if (this.mouse_x < this.canvas.getBoundingClientRect().left + 10 && this.mouse_x > this.canvas.getBoundingClientRect().left - 10) {
@@ -589,21 +610,23 @@ namespace appn.flowy {
             this.checkOffset();
         }
 
-        private touchblock(event: MouseEvent | TouchEvent): void {
+        private touchblock(event: Event): void {
             this.dragblock = false;
             const target = event.target as HTMLElement;
             if (this.hasParentClass(target, "block")) {
                 const theblock: HTMLElement | null = target.closest(".block");
                 if (theblock) {
-                    if (event instanceof TouchEvent) {
-                        this.mouse_x = event.targetTouches[0].clientX;
-                        this.mouse_y = event.targetTouches[0].clientY;
+                    const mouseEvent = event as MouseEvent;
+                    const touchEvent = event as TouchEvent;
+                    if (touchEvent.changedTouches) {
+                        this.mouse_x = touchEvent.targetTouches[0].clientX;
+                        this.mouse_y = touchEvent.targetTouches[0].clientY;
                     } else {
-                        this.mouse_x = event.clientX;
-                        this.mouse_y = event.clientY;
+                        this.mouse_x = mouseEvent.clientX;
+                        this.mouse_y = mouseEvent.clientY;
                     }
                     if (event.type !== "mouseup" && this.hasParentClass(target, "block")) {
-                        if (event instanceof MouseEvent && event.button !== 2) {
+                        if (mouseEvent.button !== 2) {
                             if (!this.active && !this.rearrangevar) {
                                 this.dragblock = true;
                                 this.drag = theblock;
@@ -616,11 +639,12 @@ namespace appn.flowy {
             }
         }
 
-        private hasParentClass(element: HTMLElement, classname: string): boolean {
-            if (element.className) {
-                if (element.className.split(' ').indexOf(classname) >= 0) return true;
+        private hasParentClass(element: Node | null, classname: string): boolean {
+            if (!element || !("className" in element)) {
+                return false;
             }
-            return element.parentNode && this.hasParentClass(element.parentNode as HTMLElement, classname);
+            if ((element as HTMLElement).className.split(' ').indexOf(classname) >= 0) return true;
+            return element.parentNode && this.hasParentClass(element.parentNode, classname);
         }
 
         private checkOffset(): void {
