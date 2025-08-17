@@ -70,7 +70,7 @@ namespace appn.flowy {
         private mouse_y: number = 0;
         private dragblock: boolean = false;
         private prevblock: number = 0;
-        private el: HTMLElement;
+        private el!: HTMLElement;
 
         constructor(canvas: HTMLElement, grab?: GrabCallback, release?: ReleaseCallback, snapping?: SnappingCallback, rearrange?: RearrangeCallback, spacing_x?: number, spacing_y?: number) {
             this.canvas = canvas;
@@ -84,8 +84,8 @@ namespace appn.flowy {
             this.paddingx = this.spacing_x;
             this.paddingy = this.spacing_y;
 
-            if (!Element.prototype.matches) {
-                Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
+            if (!(Element.prototype as any).matches) {
+                (Element.prototype as any).matches = (Element.prototype as any).msMatchesSelector || (Element.prototype as any).webkitMatchesSelector;
             }
             if (!Element.prototype.closest) {
                 Element.prototype.closest = function (s: string) {
@@ -202,45 +202,50 @@ namespace appn.flowy {
                 this.mouse_y = event.clientY;
             }
             const target = event.target as HTMLElement;
-            if (event.which != 3 && target.closest(".create-flowy")) {
+            if (event instanceof MouseEvent && event.button !== 2 && target.closest(".create-flowy")) {
                 this.original = target.closest(".create-flowy");
+                if (!this.original) return;
                 const newNode: HTMLElement = this.original.cloneNode(true) as HTMLElement;
-                target.closest(".create-flowy").classList.add("dragnow");
+                this.original.classList.add("dragnow");
                 newNode.classList.add("block");
                 newNode.classList.remove("create-flowy");
+                let newId: number;
                 if (this.blocks.length === 0) {
-                    newNode.innerHTML += "<input type='hidden' name='blockid' class='blockid' value='" + this.blocks.length + "'>";
-                    document.body.appendChild(newNode);
-                    this.drag = document.querySelector(".blockid[value='" + this.blocks.length + "']").parentNode as HTMLElement;
+                    newId = 0;
                 } else {
-                    newNode.innerHTML += "<input type='hidden' name='blockid' class='blockid' value='" + (Math.max(...this.blocks.map(a => a.id)) + 1) + "'>";
-                    document.body.appendChild(newNode);
-                    this.drag = document.querySelector(".blockid[value='" + (Math.max(...this.blocks.map(a => a.id)) + 1) + "']").parentNode as HTMLElement;
+                    newId = Math.max(...this.blocks.map(a => a.id)) + 1;
                 }
-                this.blockGrabbed(target.closest(".create-flowy"));
-                this.drag.classList.add("dragging");
-                this.active = true;
-                this.dragx = this.mouse_x - (target.closest(".create-flowy").getBoundingClientRect().left);
-                this.dragy = this.mouse_y - (target.closest(".create-flowy").getBoundingClientRect().top);
-                this.drag.style.left = this.mouse_x - this.dragx + "px";
-                this.drag.style.top = this.mouse_y - this.dragy + "px";
+                newNode.innerHTML += `<input type='hidden' name='blockid' class='blockid' value='${newId}'>`;
+                document.body.appendChild(newNode);
+                this.drag = document.querySelector(`.blockid[value='${newId}']`)?.parentNode as HTMLElement;
+
+                if (this.drag) {
+                    this.blockGrabbed(target.closest(".create-flowy"));
+                    this.drag.classList.add("dragging");
+                    this.active = true;
+                    this.dragx = this.mouse_x - (this.original.getBoundingClientRect().left);
+                    this.dragy = this.mouse_y - (this.original.getBoundingClientRect().top);
+                    this.drag.style.left = this.mouse_x - this.dragx + "px";
+                    this.drag.style.top = this.mouse_y - this.dragy + "px";
+                }
             }
         }
 
         public endDrag(event: MouseEvent | TouchEvent): void {
-            if (event.which != 3 && (this.active || this.rearrangevar)) {
+            if ((event instanceof MouseEvent && event.button !== 2) && (this.active || this.rearrangevar)) {
                 this.dragblock = false;
                 this.blockReleased();
-                if (!document.querySelector(".indicator").classList.contains("invisible")) {
-                    document.querySelector(".indicator").classList.add("invisible");
+                const indicator = document.querySelector(".indicator");
+                if (indicator && !indicator.classList.contains("invisible")) {
+                    indicator.classList.add("invisible");
                 }
-                if (this.active) {
+                if (this.active && this.original && this.drag) {
                     this.original.classList.remove("dragnow");
                     this.drag.classList.remove("dragging");
                 }
-                if (parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value) === 0 && this.rearrangevar) {
+                if (this.drag && parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value) === 0 && this.rearrangevar) {
                     this.firstBlock("rearrange")
-                } else if (this.active && this.blocks.length == 0 && (this.drag.getBoundingClientRect().top + window.scrollY) > (this.canvas.getBoundingClientRect().top + window.scrollY) && (this.drag.getBoundingClientRect().left + window.scrollX) > (this.canvas.getBoundingClientRect().left + window.scrollX)) {
+                } else if (this.active && this.drag && this.blocks.length == 0 && (this.drag.getBoundingClientRect().top + window.scrollY) > (this.canvas.getBoundingClientRect().top + window.scrollY) && (this.drag.getBoundingClientRect().left + window.scrollX) > (this.canvas.getBoundingClientRect().left + window.scrollX)) {
                     this.firstBlock("drop");
                 } else if (this.active && this.blocks.length == 0) {
                     this.removeSelection();
@@ -249,7 +254,8 @@ namespace appn.flowy {
                     for (let i: number = 0; i < this.blocks.length; i++) {
                         if (this.checkAttach(blocko[i])) {
                             this.active = false;
-                            if (this.blockSnap(this.drag, false, document.querySelector(".blockid[value='" + blocko[i] + "']").parentNode as HTMLElement)) {
+                            const parentNode = document.querySelector(".blockid[value='" + blocko[i] + "']");
+                            if (this.drag && parentNode && this.blockSnap(this.drag, false, parentNode.parentNode as HTMLElement)) {
                                 this.snap(this.drag, i, blocko);
                             } else {
                                 this.active = false;
@@ -266,11 +272,14 @@ namespace appn.flowy {
                     for (let i: number = 0; i < this.blocks.length; i++) {
                         if (this.checkAttach(blocko[i])) {
                             this.active = false;
-                            this.drag.classList.remove("dragging");
-                            this.snap(this.drag, i, blocko);
+                            if (this.drag) {
+                                this.drag.classList.remove("dragging");
+                                this.snap(this.drag, i, blocko);
+                            }
                             break;
                         } else if (i == this.blocks.length - 1) {
-                            if (this.beforeDelete(this.drag, this.blocks.filter(id => id.id == blocko[i])[0])) {
+                            const parentBlock = this.blocks.find(id => id.id == blocko[i]);
+                            if (this.drag && parentBlock && this.beforeDelete(this.drag, parentBlock)) {
                                 this.active = false;
                                 this.drag.classList.remove("dragging");
                                 this.snap(this.drag, blocko.indexOf(this.prevblock), blocko);
@@ -385,10 +394,11 @@ namespace appn.flowy {
         }
 
         private checkAttach(id: number): boolean {
+            if (!this.drag) return false;
             const xpos: number = (this.drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(this.drag).width) / 2) + this.canvas.scrollLeft - this.canvas.getBoundingClientRect().left;
             const ypos: number = (this.drag.getBoundingClientRect().top + window.scrollY) + this.canvas.scrollTop - this.canvas.getBoundingClientRect().top;
             const block: Block = this.blocks.find(a => a.id == id);
-            if (xpos >= block.x - (block.width / 2) - this.paddingx && xpos <= block.x + (block.width / 2) + this.paddingx && ypos >= block.y - (block.height / 2) && ypos <= block.y + block.height) {
+            if (block && xpos >= block.x - (block.width / 2) - this.paddingx && xpos <= block.x + (block.width / 2) + this.paddingx && ypos >= block.y - (block.height / 2) && ypos <= block.y + block.height) {
                 return true;
             } else {
                 return false;
@@ -396,8 +406,13 @@ namespace appn.flowy {
         }
 
         private removeSelection(): void {
-            this.canvas.appendChild(document.querySelector(".indicator"));
-            this.drag.parentNode.removeChild(this.drag);
+            const indicator = document.querySelector(".indicator");
+            if (indicator) {
+                this.canvas.appendChild(indicator);
+            }
+            if (this.drag && this.drag.parentNode) {
+                this.drag.parentNode.removeChild(this.drag);
+            }
         }
 
         private firstBlock(type: string): void {
@@ -578,21 +593,23 @@ namespace appn.flowy {
             this.dragblock = false;
             const target = event.target as HTMLElement;
             if (this.hasParentClass(target, "block")) {
-                const theblock: HTMLElement = target.closest(".block");
-                if (event instanceof TouchEvent) {
-                    this.mouse_x = event.targetTouches[0].clientX;
-                    this.mouse_y = event.targetTouches[0].clientY;
-                } else {
-                    this.mouse_x = event.clientX;
-                    this.mouse_y = event.clientY;
-                }
-                if (event.type !== "mouseup" && this.hasParentClass(target, "block")) {
-                    if (event.which != 3) {
-                        if (!this.active && !this.rearrangevar) {
-                            this.dragblock = true;
-                            this.drag = theblock;
-                            this.dragx = this.mouse_x - (this.drag.getBoundingClientRect().left + window.scrollX);
-                            this.dragy = this.mouse_y - (this.drag.getBoundingClientRect().top + window.scrollY);
+                const theblock: HTMLElement | null = target.closest(".block");
+                if (theblock) {
+                    if (event instanceof TouchEvent) {
+                        this.mouse_x = event.targetTouches[0].clientX;
+                        this.mouse_y = event.targetTouches[0].clientY;
+                    } else {
+                        this.mouse_x = event.clientX;
+                        this.mouse_y = event.clientY;
+                    }
+                    if (event.type !== "mouseup" && this.hasParentClass(target, "block")) {
+                        if (event instanceof MouseEvent && event.button !== 2) {
+                            if (!this.active && !this.rearrangevar) {
+                                this.dragblock = true;
+                                this.drag = theblock;
+                                this.dragx = this.mouse_x - (this.drag.getBoundingClientRect().left + window.scrollX);
+                                this.dragy = this.mouse_y - (this.drag.getBoundingClientRect().top + window.scrollY);
+                            }
                         }
                     }
                 }
