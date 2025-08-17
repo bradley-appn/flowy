@@ -84,7 +84,7 @@ namespace appn.flowy {
             this.paddingx = this.spacing_x;
             this.paddingy = this.spacing_y;
 
-            if (!(Element.prototype as any).matches) {
+            if (!Element.prototype.matches) {
                 (Element.prototype as any).matches = (Element.prototype as any).msMatchesSelector || (Element.prototype as any).webkitMatchesSelector;
             }
             if (!Element.prototype.closest) {
