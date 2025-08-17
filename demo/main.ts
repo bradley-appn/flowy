@@ -154,13 +154,15 @@ namespace appn.demo {
         private doneTouch(event: Event): void {
             if (event.type === "mouseup" && this.aclick && !this.noinfo) {
                 const target = event.target as HTMLElement;
-                const block = target.closest(".block");
+                const block = target.closest<HTMLElement>(".block");
                 if (!this.rightcard && block && !block.classList.contains("dragging")) {
                     this.tempblock = block;
                     this.rightcard = true;
                     document.getElementById("properties")?.classList.add("expanded");
                     document.getElementById("propwrap")?.classList.add("itson");
-                    this.tempblock.classList.add("selectedblock");
+                    if (this.tempblock) {
+                        this.tempblock.classList.add("selectedblock");
+                    }
                 }
             }
         }

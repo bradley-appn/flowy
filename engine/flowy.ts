@@ -227,7 +227,7 @@ namespace appn.flowy {
                 this.drag = document.querySelector(`.blockid[value='${newId}']`)?.parentNode as HTMLElement;
 
                 if (this.drag) {
-                    const grabbedBlock = target.closest(".create-flowy");
+                    const grabbedBlock = target.closest<HTMLElement>(".create-flowy");
                     if (grabbedBlock) {
                         this.blockGrabbed(grabbedBlock);
                     }
@@ -321,9 +321,14 @@ namespace appn.flowy {
             if (this.dragblock && this.drag) {
                 this.rearrangevar = true;
                 this.drag.classList.add("dragging");
-                const blockid: number = parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value);
+                const blockidInput = this.drag.querySelector<HTMLInputElement>(".blockid");
+                if (!blockidInput) return;
+                const blockid: number = parseInt(blockidInput.value);
                 this.prevblock = this.blocks.find(a => a.id == blockid)?.parent ?? -1;
-                this.blockstemp.push(this.blocks.find(a => a.id == blockid));
+                const draggedBlock = this.blocks.find(a => a.id == blockid);
+                if(draggedBlock) {
+                    this.blockstemp.push(draggedBlock);
+                }
                 this.blocks = this.blocks.filter(e => e.id != blockid);
                 if (blockid != 0) {
                     const arrow = document.querySelector(".arrowid[value='" + blockid + "']");
@@ -338,7 +343,10 @@ namespace appn.flowy {
                 while (!flag) {
                     for (let i = 0; i < layer.length; i++) {
                         if (layer[i].id != blockid) {
-                            this.blockstemp.push(this.blocks.find(a => a.id == layer[i].id));
+                            const foundBlock = this.blocks.find(a => a.id == layer[i].id);
+                            if (foundBlock) {
+                                this.blockstemp.push(foundBlock);
+                            }
                             const blockParent = document.querySelector<HTMLElement>(".blockid[value='" + layer[i].id + "']")?.parentNode as HTMLElement;
                             const arrowParent = document.querySelector<HTMLElement>(".arrowid[value='" + layer[i].id + "']")?.parentNode as HTMLElement;
                             if (blockParent && arrowParent && this.drag) {
@@ -437,6 +445,7 @@ namespace appn.flowy {
         }
 
         private firstBlock(type: string): void {
+            if (!this.drag) return;
             if (type == "drop") {
                 this.blockSnap(this.drag, true, undefined);
                 this.active = false;
@@ -456,21 +465,26 @@ namespace appn.flowy {
                 this.drag.classList.remove("dragging");
                 this.rearrangevar = false;
                 for (let w: number = 0; w < this.blockstemp.length; w++) {
-                    if (this.blockstemp[w].id != parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value)) {
-                        const blockParent: HTMLElement = document.querySelector(".blockid[value='" + this.blockstemp[w].id + "']").parentNode as HTMLElement;
-                        const arrowParent: HTMLElement = document.querySelector(".arrowid[value='" + this.blockstemp[w].id + "']").parentNode as HTMLElement;
-                        blockParent.style.left = (blockParent.getBoundingClientRect().left + window.scrollX) - (window.scrollX) + this.canvas.scrollLeft - 1 - this.absx + "px";
-                        blockParent.style.top = (blockParent.getBoundingClientRect().top + window.scrollY) - (window.scrollY) + this.canvas.scrollTop - this.absy - 1 + "px";
-                        arrowParent.style.left = (arrowParent.getBoundingClientRect().left + window.scrollX) - (window.scrollX) + this.canvas.scrollLeft - this.absx - 1 + "px";
-                        arrowParent.style.top = (arrowParent.getBoundingClientRect().top + window.scrollY) + this.canvas.scrollTop - 1 - this.absy + "px";
-                        this.canvas.appendChild(blockParent);
-                        this.canvas.appendChild(arrowParent);
-                        this.blockstemp[w].x = (blockParent.getBoundingClientRect().left + window.scrollX) + (blockParent.offsetWidth / 2) + this.canvas.scrollLeft - this.canvas.getBoundingClientRect().left - 1;
-                        this.blockstemp[w].y = (blockParent.getBoundingClientRect().top + window.scrollY) + (blockParent.offsetHeight / 2) + this.canvas.scrollTop - this.canvas.getBoundingClientRect().top - 1;
+                    if (this.blockstemp[w] && this.blockstemp[w].id != parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value)) {
+                        const blockParent = document.querySelector<HTMLElement>(".blockid[value='" + this.blockstemp[w].id + "']")?.parentNode as HTMLElement;
+                        const arrowParent = document.querySelector<HTMLElement>(".arrowid[value='" + this.blockstemp[w].id + "']")?.parentNode as HTMLElement;
+                        if (blockParent && arrowParent) {
+                            blockParent.style.left = (blockParent.getBoundingClientRect().left + window.scrollX) - (window.scrollX) + this.canvas.scrollLeft - 1 - this.absx + "px";
+                            blockParent.style.top = (blockParent.getBoundingClientRect().top + window.scrollY) - (window.scrollY) + this.canvas.scrollTop - this.absy - 1 + "px";
+                            arrowParent.style.left = (arrowParent.getBoundingClientRect().left + window.scrollX) - (window.scrollX) + this.canvas.scrollLeft - this.absx - 1 + "px";
+                            arrowParent.style.top = (arrowParent.getBoundingClientRect().top + window.scrollY) + this.canvas.scrollTop - 1 - this.absy + "px";
+                            this.canvas.appendChild(blockParent);
+                            this.canvas.appendChild(arrowParent);
+                            this.blockstemp[w].x = (blockParent.getBoundingClientRect().left + window.scrollX) + (blockParent.offsetWidth / 2) + this.canvas.scrollLeft - this.canvas.getBoundingClientRect().left - 1;
+                            this.blockstemp[w].y = (blockParent.getBoundingClientRect().top + window.scrollY) + (blockParent.offsetHeight / 2) + this.canvas.scrollTop - this.canvas.getBoundingClientRect().top - 1;
+                        }
                     }
                 }
-                this.blockstemp.find(a => a.id == 0).x = (this.drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(this.drag).width) / 2) + this.canvas.scrollLeft - this.canvas.getBoundingClientRect().left;
-                this.blockstemp.find(a => a.id == 0).y = (this.drag.getBoundingClientRect().top + window.scrollY) + (parseInt(window.getComputedStyle(this.drag).height) / 2) + this.canvas.scrollTop - this.canvas.getBoundingClientRect().top;
+                const draggedBlock = this.blockstemp.find(a => a.id == 0);
+                if (draggedBlock) {
+                    draggedBlock.x = (this.drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(this.drag).width) / 2) + this.canvas.scrollLeft - this.canvas.getBoundingClientRect().left;
+                    draggedBlock.y = (this.drag.getBoundingClientRect().top + window.scrollY) + (parseInt(window.getComputedStyle(this.drag).height) / 2) + this.canvas.scrollTop - this.canvas.getBoundingClientRect().top;
+                }
                 this.blocks = this.blocks.concat(this.blockstemp);
                 this.blockstemp = [];
             }
@@ -478,14 +492,21 @@ namespace appn.flowy {
 
         private drawArrow(arrow: Block, x: number, y: number, id: number): void {
             const parentBlock = this.blocks.find(a => a.id == id);
+            if (!parentBlock || !this.drag) return;
+            const blockidInput = this.drag.querySelector<HTMLInputElement>(".blockid");
+            if (!blockidInput) return;
+
             if (x < 0) {
-                this.canvas.innerHTML += `<div class="arrowblock"><input type="hidden" class="arrowid" value="${(this.drag.querySelector(".blockid") as HTMLInputElement).value}"><svg preserveaspectratio="none" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M${parentBlock.x - arrow.x + 5} 0L${parentBlock.x - arrow.x + 5} ${this.paddingy / 2}L5 ${this.paddingy / 2}L5 ${y}" stroke="#C5CCD0" stroke-width="2px"/><path d="M0 ${y - 5}H10L5 ${y}L0 ${y - 5}Z" fill="#C5CCD0"/></svg></div>`;
-                (document.querySelector(`.arrowid[value="${(this.drag.querySelector(".blockid") as HTMLInputElement).value}"]`).parentNode as HTMLElement).style.left = `${arrow.x - 5 - (this.absx + window.scrollX) + this.canvas.scrollLeft + this.canvas.getBoundingClientRect().left}px`;
+                this.canvas.innerHTML += `<div class="arrowblock"><input type="hidden" class="arrowid" value="${blockidInput.value}"><svg preserveaspectratio="none" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M${parentBlock.x - arrow.x + 5} 0L${parentBlock.x - arrow.x + 5} ${this.paddingy / 2}L5 ${this.paddingy / 2}L5 ${y}" stroke="#C5CCD0" stroke-width="2px"/><path d="M0 ${y - 5}H10L5 ${y}L0 ${y - 5}Z" fill="#C5CCD0"/></svg></div>`;
+                const arrowEl = document.querySelector<HTMLElement>(`.arrowid[value="${blockidInput.value}"]`)?.parentNode as HTMLElement;
+                if (arrowEl) arrowEl.style.left = `${arrow.x - 5 - (this.absx + window.scrollX) + this.canvas.scrollLeft + this.canvas.getBoundingClientRect().left}px`;
             } else {
-                this.canvas.innerHTML += `<div class="arrowblock"><input type="hidden" class="arrowid" value="${(this.drag.querySelector(".blockid") as HTMLInputElement).value}"><svg preserveaspectratio="none" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 0L20 ${this.paddingy / 2}L${x} ${this.paddingy / 2}L${x} ${y}" stroke="#C5CCD0" stroke-width="2px"/><path d="M${x - 5} ${y - 5}H${x + 5}L${x} ${y}L${x - 5} ${y - 5}Z" fill="#C5CCD0"/></svg></div>`;
-                (document.querySelector(`.arrowid[value="${parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value)}"]`).parentNode as HTMLElement).style.left = `${parentBlock.x - 20 - (this.absx + window.scrollX) + this.canvas.scrollLeft + this.canvas.getBoundingClientRect().left}px`;
+                this.canvas.innerHTML += `<div class="arrowblock"><input type="hidden" class="arrowid" value="${blockidInput.value}"><svg preserveaspectratio="none" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 0L20 ${this.paddingy / 2}L${x} ${this.paddingy / 2}L${x} ${y}" stroke="#C5CCD0" stroke-width="2px"/><path d="M${x - 5} ${y - 5}H${x + 5}L${x} ${y}L${x - 5} ${y - 5}Z" fill="#C5CCD0"/></svg></div>`;
+                const arrowEl = document.querySelector<HTMLElement>(`.arrowid[value="${parseInt(blockidInput.value)}"]`)?.parentNode as HTMLElement;
+                if (arrowEl) arrowEl.style.left = `${parentBlock.x - 20 - (this.absx + window.scrollX) + this.canvas.scrollLeft + this.canvas.getBoundingClientRect().left}px`;
             }
-            (document.querySelector(`.arrowid[value="${parseInt((this.drag.querySelector(".blockid") as HTMLInputElement).value)}"]`).parentNode as HTMLElement).style.top = `${parentBlock.y + (parentBlock.height / 2) + this.canvas.getBoundingClientRect().top - this.absy}px`;
+            const arrowEl = document.querySelector<HTMLElement>(`.arrowid[value="${parseInt(blockidInput.value)}"]`)?.parentNode as HTMLElement;
+            if (arrowEl) arrowEl.style.top = `${parentBlock.y + (parentBlock.height / 2) + this.canvas.getBoundingClientRect().top - this.absy}px`;
         }
 
         private updateArrow(arrow: Block, x: number, y: number, children: Block): void {
